@@ -1,0 +1,519 @@
+Buku Panduan: Membuat Klon Twitter dengan Hono dan React
+Selamat datang di panduan membangun aplikasi klon Twitter sederhana. Kita akan menggunakan teknologi modern yang cepat dan efisien:
+Hono: Kerangka kerja web super cepat untuk sisi server (backend).
+React: Pustaka populer untuk membangun antarmuka pengguna (frontend).
+TypeScript: Menambahkan tipe statis ke JavaScript untuk kode yang lebih aman dan mudah dikelola.
+Mari kita mulai petualangan coding kita!
+Bab 1: Pengaturan Proyek
+Langkah pertama adalah menyiapkan lingkungan kerja kita. Kita akan membuat satu folder utama yang berisi dua proyek: server untuk Hono dan client untuk React.
+1. Buat Folder Utama
+Buka terminal Anda dan jalankan perintah berikut:
+mkdir twitter-clone
+cd twitter-clone
+
+
+2. Siapkan Backend (Server) dengan Hono
+Kita akan menggunakan create-hono untuk membuat proyek backend dengan cepat.
+npm create hono@latest server
+
+
+Saat muncul pertanyaan, pilih opsi berikut:
+Which template do you want to use? -> bun
+Do you want to install dependencies? -> yes
+Do you want to initialize a new git repository? -> no
+Setelah selesai, struktur folder server Anda akan terlihat seperti ini:
+server/
+├── src/
+│   └── index.ts  # Titik awal server kita
+├── package.json
+└── tsconfig.json
+
+
+3. Siapkan Frontend (Client) dengan React + Vite
+Sekarang, kita buat proyek frontend menggunakan Vite, sebuah build tool modern yang sangat cepat.
+npm create vite@latest client -- --template react-ts
+
+
+Perintah ini akan membuat folder client dengan templat React dan TypeScript.
+4. Instal Dependensi Client
+Masuk ke direktori client dan instal semua paket yang dibutuhkan.
+cd client
+npm install
+
+
+Struktur proyek akhir Anda sekarang akan terlihat seperti ini:
+twitter-clone/
+├── server/   # Proyek Backend Hono
+└── client/   # Proyek Frontend React
+
+
+Kita sudah siap! Di bab selanjutnya, kita akan mulai membangun API untuk server kita.
+Bab 2: Membangun API Backend dengan Hono
+Sekarang kita fokus pada folder server. Kita akan membuat beberapa endpoint API sederhana untuk mengelola "tweet". Untuk saat ini, kita akan menyimpan data di dalam memori (sebuah variabel array).
+1. Definisikan Tipe Data Tweet
+Pertama, mari kita definisikan seperti apa struktur data sebuah tweet. Buat file baru di server/src/types.ts.
+// server/src/types.ts
+export type Tweet = {
+  id: string;
+  author: string;
+  content: string;
+  timestamp: string;
+};
+
+
+2. Buat Logika API
+Buka file utama server di server/src/index.ts dan ganti isinya dengan kode berikut.
+// server/src/index.ts
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import type { Tweet } from './types';
+
+const app = new Hono();
+
+// Mengizinkan permintaan dari frontend (client)
+app.use('/api/*', cors());
+
+// Simpan data tweet di memori server
+let tweets: Tweet[] = [
+  {
+    id: '1',
+    author: 'Hono',
+    content: 'Halo, ini tweet pertama!',
+    timestamp: new Date().toISOString(),
+  },
+  {
+    id: '2',
+    author: 'React',
+    content: 'Senang bisa terhubung dengan Hono!',
+    timestamp: new Date().toISOString(),
+  },
+];
+
+// Rute API untuk mendapatkan semua tweet
+app.get('/api/tweets', (c) => {
+  return c.json(tweets);
+});
+
+// Rute API untuk membuat tweet baru
+app.post('/api/tweets', async (c) => {
+  const { author, content } = await c.req.json<{ author: string; content: string }>();
+  
+  if (!author || !content) {
+    return c.json({ error: 'Author dan content dibutuhkan' }, 400);
+  }
+
+  const newTweet: Tweet = {
+    id: String(tweets.length + 1),
+    author,
+    content,
+    timestamp: new Date().toISOString(),
+  };
+
+  tweets.push(newTweet);
+  
+  // Mengurutkan tweet dari yang terbaru
+  tweets.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+  return c.json(newTweet, 201);
+});
+
+export default app;
+
+
+Penjelasan Kode:
+cors(): Ini penting agar aplikasi React kita (yang berjalan di domain berbeda saat pengembangan) diizinkan untuk meminta data dari server Hono.
+let tweets: Tweet[]: Ini adalah "database" sementara kita.
+app.get('/api/tweets', ...): Membuat endpoint GET yang mengembalikan semua data tweet dalam format JSON.
+app.post('/api/tweets', ...): Membuat endpoint POST untuk menerima data tweet baru, menyimpannya ke array, dan mengembalikannya.
+3. Jalankan Server
+Kembali ke direktori server dan jalankan server pengembangan.
+cd ../server 
+bun dev
+
+
+Server Anda sekarang berjalan di http://localhost:3000. Jika Anda membuka http://localhost:3000/api/tweets di browser, Anda akan melihat data tweet awal dalam format JSON.
+Bab 3: Menghubungkan Frontend ke Backend
+Sekarang saatnya membuat aplikasi React kita bisa "berbicara" dengan server Hono. Kita akan menggunakan hono/client untuk membuat koneksi yang type-safe, artinya kode frontend kita akan tahu tipe data apa yang dikirim oleh backend.
+1. Instal hono di Client
+Pertama, kita perlu menambahkan paket hono ke proyek client.
+# Pastikan Anda berada di direktori client/
+npm install hono
+
+
+2. Buat RPC Client
+RPC (Remote Procedure Call) memungkinkan kita memanggil fungsi backend seolah-olah itu adalah fungsi lokal di frontend.
+Buat file baru di client/src/lib/api.ts.
+// client/src/lib/api.ts
+import { hc } from 'hono/client';
+// Impor tipe 'AppType' dari file server
+import type { AppType } from '../../server/src/index';
+
+const client = hc<AppType>('http://localhost:3000');
+
+export const api = client.api;
+
+
+Penting: Agar ini berfungsi, kita perlu mengekspor tipe dari server Hono kita. Buka server/src/index.ts dan tambahkan baris ini di paling bawah:
+// server/src/index.ts
+
+// ... (kode yang sudah ada)
+
+export default app;
+// Tambahkan baris ini
+export type AppType = typeof app;
+
+
+Penjelasan Kode:
+hc<AppType>: Kita membuat klien hc dan memberinya tipe AppType dari server. Sekarang, saat kita menggunakan api.tweets.$get(), TypeScript tahu bahwa hasilnya akan berupa array dari Tweet.
+'http://localhost:3000': Ini adalah alamat server Hono kita.
+3. Ambil Data di Komponen React
+Sekarang, mari kita gunakan klien ini di komponen utama React. Buka client/src/App.tsx dan ganti isinya.
+// client/src/App.tsx
+import { useEffect, useState } from 'react';
+import { api } from './lib/api';
+// Impor tipe Tweet dari server
+import type { Tweet } from '../../server/src/types';
+import './App.css';
+
+function App() {
+  const [tweets, setTweets] = useState<Tweet[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchTweets() {
+      try {
+        const res = await api.tweets.$get();
+        if (res.ok) {
+          const data = await res.json();
+          setTweets(data);
+        } else {
+          console.error('Gagal mengambil tweets:', await res.text());
+        }
+      } catch (error) {
+        console.error('Terjadi kesalahan:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchTweets();
+  }, []);
+
+  if (loading) {
+    return <div>Memuat tweet...</div>;
+  }
+
+  return (
+    <div className="app-container">
+      <h1>Klon Twitter</h1>
+      <div className="tweet-list">
+        {tweets.map((tweet) => (
+          <div key={tweet.id} className="tweet-item">
+            <strong>{tweet.author}</strong>
+            <p>{tweet.content}</p>
+            <small>{new Date(tweet.timestamp).toLocaleString()}</small>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default App;
+
+
+4. Tambahkan Sedikit CSS
+Buka client/src/App.css dan tambahkan gaya dasar agar terlihat lebih baik.
+/* client/src/App.css */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: #f0f2f5;
+  color: #1c1e21;
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  padding-top: 20px;
+}
+
+.app-container {
+  width: 100%;
+  max-width: 600px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+}
+
+h1 {
+  text-align: center;
+  color: #1877f2;
+}
+
+.tweet-list {
+  margin-top: 20px;
+}
+
+.tweet-item {
+  border: 1px solid #dddfe2;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.tweet-item strong {
+  font-size: 1.1em;
+}
+
+.tweet-item p {
+  margin: 10px 0;
+}
+
+.tweet-item small {
+  color: #606770;
+}
+
+
+5. Jalankan Client
+Buka terminal baru, masuk ke direktori client, dan jalankan aplikasi React.
+cd client
+npm run dev
+
+
+Buka http://localhost:5173 (atau alamat yang ditampilkan di terminal) di browser. Anda akan melihat daftar tweet yang diambil dari server Hono!
+Bab 4: Membuat Tweet Baru dari Frontend
+Sekarang aplikasi kita bisa menampilkan data. Langkah selanjutnya adalah membuat fungsionalitas untuk mengirim tweet baru dari antarmuka pengguna.
+1. Buat Komponen Form
+Kita akan membuat komponen baru untuk form input. Buat file client/src/components/TweetForm.tsx.
+// client/src/components/TweetForm.tsx
+import { useState } from 'react';
+
+// Definisikan props untuk komponen
+interface TweetFormProps {
+  onTweetPosted: () => void; // Fungsi callback setelah tweet berhasil dikirim
+}
+
+export function TweetForm({ onTweetPosted }: TweetFormProps) {
+  const [content, setContent] = useState('');
+  const [author] = useState('User React'); // Untuk sementara, nama author kita hardcode
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!content.trim()) return;
+
+    // TODO: Kirim data ke API
+    
+    setContent('');
+    onTweetPosted(); // Panggil callback
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="tweet-form">
+      <textarea
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        placeholder="Apa yang sedang kamu pikirkan?"
+        rows={3}
+        maxLength={280}
+      />
+      <div className="form-footer">
+        <span>{280 - content.length}</span>
+        <button type="submit" disabled={!content.trim()}>
+          Tweet
+        </button>
+      </div>
+    </form>
+  );
+}
+
+
+2. Hubungkan Form ke API
+Sekarang, kita lengkapi bagian TODO untuk mengirim data menggunakan klien Hono kita.
+// client/src/components/TweetForm.tsx
+import { useState } from 'react';
+import { api } from '../lib/api'; // Impor klien API
+
+interface TweetFormProps {
+  onTweetPosted: () => void;
+}
+
+export function TweetForm({ onTweetPosted }: TweetFormProps) {
+  const [content, setContent] = useState('');
+  const [author] = useState('User React');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!content.trim() || isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      const res = await api.tweets.$post({
+        json: {
+          author,
+          content,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error('Gagal mengirim tweet');
+      }
+
+      setContent('');
+      onTweetPosted(); // Panggil callback untuk memuat ulang daftar tweet
+    } catch (error) {
+      console.error(error);
+      alert('Gagal mengirim tweet. Silakan coba lagi.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="tweet-form">
+      <textarea
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        placeholder="Apa yang sedang kamu pikirkan?"
+        rows={3}
+        maxLength={280}
+      />
+      <div className="form-footer">
+        <span>{280 - content.length}</span>
+        <button type="submit" disabled={!content.trim() || isSubmitting}>
+          {isSubmitting ? 'Mengirim...' : 'Tweet'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+
+3. Integrasikan Form ke App.tsx
+Sekarang, impor dan gunakan TweetForm di dalam App.tsx. Kita juga perlu memodifikasi App.tsx agar dapat memuat ulang daftar tweet setelah tweet baru berhasil dikirim.
+// client/src/App.tsx
+import { useEffect, useState, useCallback } from 'react'; // Tambahkan useCallback
+import { api } from './lib/api';
+import type { Tweet } from '../../server/src/types';
+import { TweetForm } from './components/TweetForm'; // Impor komponen form
+import './App.css';
+
+function App() {
+  const [tweets, setTweets] = useState<Tweet[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Gunakan useCallback agar fungsi ini tidak dibuat ulang setiap render
+  const fetchTweets = useCallback(async () => {
+    try {
+      const res = await api.tweets.$get();
+      if (res.ok) {
+        const data = await res.json();
+        setTweets(data);
+      } else {
+        console.error('Gagal mengambil tweets:', await res.text());
+      }
+    } catch (error) {
+      console.error('Terjadi kesalahan:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTweets();
+  }, [fetchTweets]);
+
+  if (loading) {
+    return <div>Memuat tweet...</div>;
+  }
+
+  return (
+    <div className="app-container">
+      <h1>Klon Twitter</h1>
+      {/* Tambahkan komponen form di sini */}
+      <TweetForm onTweetPosted={fetchTweets} />
+      <div className="tweet-list">
+        {tweets.map((tweet) => (
+          <div key={tweet.id} className="tweet-item">
+            <strong>{tweet.author}</strong>
+            <p>{tweet.content}</p>
+            <small>{new Date(tweet.timestamp).toLocaleString()}</small>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default App;
+
+
+4. Tambahkan CSS untuk Form
+Terakhir, tambahkan gaya untuk form di client/src/App.css.
+/* client/src/App.css */
+/* ... (CSS yang sudah ada) ... */
+
+.tweet-form {
+  margin-bottom: 20px;
+  border-bottom: 1px solid #dddfe2;
+  padding-bottom: 20px;
+}
+
+.tweet-form textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 1em;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.form-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.form-footer span {
+  color: #606770;
+}
+
+.form-footer button {
+  background-color: #1877f2;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.form-footer button:hover {
+  background-color: #166fe5;
+}
+
+.form-footer button:disabled {
+  background-color: #a0bdf5;
+  cursor: not-allowed;
+}
+
+
+Sekarang, coba jalankan lagi aplikasi Anda. Anda akan melihat sebuah form di bagian atas. Coba tulis sesuatu dan klik tombol "Tweet". Tweet baru Anda akan langsung muncul di daftar!
+Bab 5: Kesimpulan dan Langkah Selanjutnya
+Selamat! Anda telah berhasil membangun fondasi aplikasi klon Twitter full-stack menggunakan Hono dan React.
+Apa yang Telah Kita Pelajari:
+Pengaturan Proyek: Menyiapkan lingkungan monorepo sederhana untuk backend dan frontend.
+Backend dengan Hono: Membuat API RESTful yang cepat untuk mengelola data tweet (secara in-memory).
+Frontend dengan React: Membangun antarmuka pengguna untuk menampilkan dan membuat tweet.
+Koneksi Type-Safe: Menggunakan hono/client untuk menghubungkan frontend dan backend dengan aman berkat TypeScript.
+Ini adalah awal yang bagus, tetapi masih banyak yang bisa dikembangkan.
+Langkah Selanjutnya yang Bisa Anda Coba:
+Database: Ganti penyimpanan in-memory dengan database sungguhan seperti PostgreSQL (dengan Prisma ORM) atau SQLite.
+Autentikasi Pengguna: Tambahkan sistem login dan registrasi agar setiap tweet terhubung dengan pengguna yang sebenarnya.
+Pembaruan Real-time: Gunakan WebSockets agar tweet baru dari pengguna lain bisa langsung muncul tanpa perlu me-refresh halaman.
+Fitur Tambahan: Implementasikan fitur seperti likes, retweets, dan halaman profil pengguna.
+Penyempurnaan UI: Gunakan pustaka komponen seperti Shadcn/UI atau Material-UI untuk membuat tampilan yang lebih profesional.
+Deployment: Pelajari cara men-deploy aplikasi Hono dan React Anda ke platform seperti Cloudflare Workers, Vercel, atau Netlify.
+Semoga panduan ini bermanfaat dan memberikan Anda dasar yang kuat untuk terus belajar dan membangun aplikasi web yang luar biasa. Selamat coding!

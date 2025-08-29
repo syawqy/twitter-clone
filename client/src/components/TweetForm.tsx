@@ -1,58 +1,41 @@
 // client/src/components/TweetForm.tsx
-import { useState } from 'react';
-import { api } from '../lib/api'; // Impor klien API
+import React from 'react';
 
 interface TweetFormProps {
-  onTweetPosted: () => void;
+  newTweet: string;
+  setNewTweet: (value: string) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  isLoading: boolean;
 }
 
-export function TweetForm({ onTweetPosted }: TweetFormProps) {
-  const [content, setContent] = useState('');
-  const [author] = useState('User React');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!content.trim() || isSubmitting) return;
-
-    setIsSubmitting(true);
-    try {
-      const res = await api.tweets.$post({
-        json: {
-          author,
-          content,
-        },
-      });
-
-      if (!res.ok) {
-        throw new Error('Gagal mengirim tweet');
-      }
-
-      setContent('');
-      onTweetPosted(); // Panggil callback untuk memuat ulang daftar tweet
-    } catch (error) {
-      console.error(error);
-      alert('Gagal mengirim tweet. Silakan coba lagi.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
+export const TweetForm: React.FC<TweetFormProps> = ({
+  newTweet,
+  setNewTweet,
+  onSubmit,
+  isLoading
+}) => {
   return (
-    <form onSubmit={handleSubmit} className="tweet-form">
+    <form onSubmit={onSubmit} className="tweet-form">
       <textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        placeholder="Apa yang sedang kamu pikirkan?"
+        value={newTweet}
+        onChange={(e) => setNewTweet(e.target.value)}
+        placeholder="What's happening?"
+        className="tweet-input"
         rows={3}
         maxLength={280}
       />
-      <div className="form-footer">
-        <span>{280 - content.length}</span>
-        <button type="submit" disabled={!content.trim() || isSubmitting}>
-          {isSubmitting ? 'Mengirim...' : 'Tweet'}
+      <div className="tweet-form-footer">
+        <span className="char-count">
+          {280 - newTweet.length} characters remaining
+        </span>
+        <button 
+          type="submit" 
+          disabled={!newTweet.trim() || isLoading}
+          className="tweet-button"
+        >
+          {isLoading ? 'Posting...' : 'Tweet'}
         </button>
       </div>
     </form>
   );
-}
+};

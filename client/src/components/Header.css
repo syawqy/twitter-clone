@@ -1,0 +1,112 @@
+/* client/src/components/Header.css */
+.header {
+  background-color: #ffffff;
+  color: #14171a;
+  border-bottom: 1px solid #e1e8ed;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  width: 100%;
+}
+
+.header-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 53px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+}
+
+.header-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+  color: #1da1f2;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.username {
+  font-weight: 700;
+  font-size: 15px;
+  color: #14171a;
+}
+
+.email {
+  font-size: 13px;
+  color: #657786;
+}
+
+.logout-button {
+  background-color: transparent;
+  color: #1da1f2;
+  border: 1px solid #1da1f2;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.logout-button:hover {
+  background-color: #1da1f2;
+  color: #ffffff;
+}
+
+.logout-button:active {
+  background-color: rgba(239, 243, 244, 0.2);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .header-content {
+    padding: 0 15px;
+  }
+  
+  .header-title {
+    font-size: 1.3em;
+  }
+  
+  .user-info {
+    display: none;
+  }
+  
+  .logout-button {
+    padding: 6px 12px;
+    font-size: 0.8em;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-content {
+    padding: 0 10px;
+  }
+  
+  .header-title {
+    font-size: 1.2em;
+  }
+  
+  .logout-button {
+    padding: 4px 8px;
+    font-size: 0.75em;
+  }
+}
